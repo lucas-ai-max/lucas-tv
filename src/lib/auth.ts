@@ -1,48 +1,12 @@
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+export const AUTH_COOKIE = "lucas-tv-auth";
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        username: { label: "Usuário", type: "text" },
-        password: { label: "Senha", type: "password" },
-      },
-      async authorize(credentials) {
-        const validUsers = [
-          {
-            username: process.env.AUTH_USERNAME,
-            password: process.env.AUTH_PASSWORD,
-            id: "1",
-            name: "Lucas",
-          },
-          {
-            username: "acessolivre",
-            password: "acessolivre",
-            id: "2",
-            name: "Visitante",
-          },
-        ];
+const VALID_USERS = [
+  { username: "lucas", password: "lucas123" },
+  { username: "acessolivre", password: "acessolivre" },
+];
 
-        const user = validUsers.find(
-          (u) =>
-            u.username === credentials?.username &&
-            u.password === credentials?.password
-        );
-
-        if (user) {
-          return { id: user.id, name: user.name };
-        }
-        return null;
-      },
-    }),
-  ],
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login",
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-};
+export function validateCredentials(username: string, password: string): boolean {
+  return VALID_USERS.some(
+    (u) => u.username === username && u.password === password
+  );
+}

@@ -1,13 +1,10 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-function LoginForm() {
+export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,17 +15,21 @@ function LoginForm() {
 
     const formData = new FormData(e.currentTarget);
 
-    const result = await signIn("credentials", {
-      username: formData.get("username") as string,
-      password: formData.get("password") as string,
-      redirect: false,
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: formData.get("username"),
+        password: formData.get("password"),
+      }),
     });
 
-    if (result?.error) {
+    if (res.ok) {
+      router.push("/");
+      router.refresh();
+    } else {
       setError("Usuário ou senha incorretos");
       setLoading(false);
-    } else {
-      router.push(callbackUrl);
     }
   }
 
@@ -61,9 +62,7 @@ function LoginForm() {
             />
           </div>
 
-          {error && (
-            <p className="text-red-500 text-sm">{error}</p>
-          )}
+          {error && <p className="text-red-500 text-sm">{error}</p>}
 
           <button
             type="submit"
@@ -75,19 +74,5 @@ function LoginForm() {
         </form>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#141414]">
-          <div className="text-white">Carregando...</div>
-        </div>
-      }
-    >
-      <LoginForm />
-    </Suspense>
   );
 }

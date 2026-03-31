@@ -1,27 +1,19 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { AUTH_COOKIE } from "@/lib/auth";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Rotas públicas que não precisam de auth
-  const publicPaths = ["/login", "/api/auth"];
-  const isPublic = publicPaths.some((p) => pathname.startsWith(p));
-
-  if (isPublic) {
+  const publicPaths = ["/login", "/api/login", "/api/logout"];
+  if (publicPaths.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  const isAuth = request.cookies.get(AUTH_COOKIE)?.value === "1";
 
-  if (!token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (!isAuth) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
