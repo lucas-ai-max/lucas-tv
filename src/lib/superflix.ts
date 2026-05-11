@@ -1,7 +1,5 @@
-import { SUPERFLIX_BASE_URL } from "./constants";
-
 export function getMoviePlayerUrl(id: number | string): string {
-  return `${SUPERFLIX_BASE_URL}/filme/${id}#noLink`;
+  return `/api/proxy?url=${encodeURIComponent(`/filme/${id}`)}`;
 }
 
 export function getEpisodePlayerUrl(
@@ -9,5 +7,5 @@ export function getEpisodePlayerUrl(
   season: number,
   episode: number
 ): string {
-  return `${SUPERFLIX_BASE_URL}/serie/${id}/${season}/${episode}#noLink#noEpList`;
+  return `/api/proxy?url=${encodeURIComponent(`/serie/${id}/${season}/${episode}`)}`;
 }
