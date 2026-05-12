@@ -75,3 +75,54 @@ export async function searchMulti(query: string, page = 1) {
     page: String(page),
   });
 }
+
+// Anime — TV series with animation genre + Japanese as original language,
+// which reliably filters to actual anime (vs Western animation).
+export async function getPopularAnimes(page = 1) {
+  return tmdbFetch<TMDBPageResponse<TMDBSeries>>("/discover/tv", {
+    with_genres: "16",
+    with_original_language: "ja",
+    sort_by: "popularity.desc",
+    page: String(page),
+  });
+}
+
+export async function getTopRatedAnimes(page = 1) {
+  return tmdbFetch<TMDBPageResponse<TMDBSeries>>("/discover/tv", {
+    with_genres: "16",
+    with_original_language: "ja",
+    sort_by: "vote_average.desc",
+    "vote_count.gte": "100",
+    page: String(page),
+  });
+}
+
+export async function getAiringAnimes(page = 1) {
+  // Anime episodes airing in the last 30 days.
+  const today = new Date();
+  const past = new Date(today);
+  past.setDate(today.getDate() - 30);
+  const future = new Date(today);
+  future.setDate(today.getDate() + 7);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+  return tmdbFetch<TMDBPageResponse<TMDBSeries>>("/discover/tv", {
+    with_genres: "16",
+    with_original_language: "ja",
+    sort_by: "popularity.desc",
+    "air_date.gte": fmt(past),
+    "air_date.lte": fmt(future),
+    page: String(page),
+  });
+}
+
+export async function getRecentAnimes(page = 1) {
+  // Sort by first air date descending — newest anime.
+  return tmdbFetch<TMDBPageResponse<TMDBSeries>>("/discover/tv", {
+    with_genres: "16",
+    with_original_language: "ja",
+    sort_by: "first_air_date.desc",
+    "vote_count.gte": "10",
+    page: String(page),
+  });
+}

@@ -9,15 +9,36 @@ import {
   getPopularMovies,
   getPopularSeries,
   getTopRatedMovies,
+  getPopularAnimes,
 } from "@/lib/tmdb";
 
 export default async function Home() {
-  const [trending, popularMovies, popularSeries, topRated] = await Promise.all([
+  const [
+    trending,
+    popularMovies,
+    popularSeries,
+    topRated,
+    animePage1,
+    animePage2,
+    animePage3,
+  ] = await Promise.all([
     getTrending("week"),
     getPopularMovies(),
     getPopularSeries(),
     getTopRatedMovies(),
+    getPopularAnimes(1),
+    getPopularAnimes(2),
+    getPopularAnimes(3),
   ]);
+
+  // Concatena 3 páginas de animes (~60 items) e remove duplicados por id.
+  const animeSeen = new Set<number>();
+  const popularAnimes = [...animePage1.results, ...animePage2.results, ...animePage3.results]
+    .filter((a) => {
+      if (animeSeen.has(a.id)) return false;
+      animeSeen.add(a.id);
+      return true;
+    });
 
   const heroItem = trending.results.find(
     (item) => item.media_type !== "person" && item.backdrop_path
@@ -69,6 +90,20 @@ export default async function Home() {
               posterPath={series.poster_path}
               voteAverage={series.vote_average}
               year={series.first_air_date?.slice(0, 4) || ""}
+              mediaType="tv"
+            />
+          ))}
+        </ContentCarousel>
+
+        <ContentCarousel title="Animes Populares">
+          {popularAnimes.map((anime) => (
+            <ContentCard
+              key={anime.id}
+              id={anime.id}
+              title={anime.name}
+              posterPath={anime.poster_path}
+              voteAverage={anime.vote_average}
+              year={anime.first_air_date?.slice(0, 4) || ""}
               mediaType="tv"
             />
           ))}

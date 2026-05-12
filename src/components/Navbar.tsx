@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/", label: "Início" },
   { href: "/search?q=movie", label: "Filmes" },
   { href: "/search?q=series", label: "Séries" },
+  { href: "/animes", label: "Animes" },
 ];
 
 export default function Navbar() {

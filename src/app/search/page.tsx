@@ -1,33 +1,45 @@
 import Navbar from "@/components/Navbar";
 import ContentCard from "@/components/ContentCard";
+import LoadMoreButton from "@/components/LoadMoreButton";
 import { searchMulti } from "@/lib/tmdb";
 import type { TMDBMultiResult } from "@/types/tmdb";
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; pages?: string }>;
 }) {
-  const { q, page } = await searchParams;
+  const { q, pages } = await searchParams;
   const query = q || "";
-  const pageNum = Math.max(1, Number(page) || 1);
+  const pagesCount = Math.min(25, Math.max(1, Number(pages) || 1));
 
-  const results = query ? await searchMulti(query, pageNum) : null;
+  // Fetch all pages 1..pagesCount in parallel so each "Carregar mais" click
+  // appends to the existing results instead of replacing them.
+  const pageResults = query
+    ? await Promise.all(
+        Array.from({ length: pagesCount }, (_, i) => searchMulti(query, i + 1))
+      )
+    : null;
 
   const movies: TMDBMultiResult[] = [];
   const series: TMDBMultiResult[] = [];
-  for (const item of results?.results ?? []) {
-    if (item.media_type === "movie") movies.push(item);
-    else if (item.media_type === "tv") series.push(item);
+  const seen = new Set<number>();
+  for (const p of pageResults ?? []) {
+    for (const item of p.results) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      if (item.media_type === "movie") movies.push(item);
+      else if (item.media_type === "tv") series.push(item);
+    }
   }
 
   const total = movies.length + series.length;
-  const hasMore = (results?.total_pages ?? 0) > pageNum;
+  const hasMore = (pageResults?.[0]?.total_pages ?? 0) > pagesCount;
 
   function nextPageHref(): string {
     const sp = new URLSearchParams();
     sp.set("q", query);
-    sp.set("page", String(pageNum + 1));
+    sp.set("pages", String(pagesCount + 1));
     return `/search?${sp.toString()}`;
   }
 
@@ -49,7 +61,7 @@ export default async function SearchPage({
         {query && total > 0 && (
           <p className="text-sm text-gray-400 mb-8">
             {total} {total === 1 ? "resultado" : "resultados"}
-            {pageNum > 1 ? ` · página ${pageNum}` : ""}
+            {pagesCount > 1 ? ` · ${pagesCount} páginas carregadas` : ""}
           </p>
         )}
 
@@ -85,12 +97,7 @@ export default async function SearchPage({
 
             {hasMore && (
               <div className="mt-10 flex justify-center">
-                <a
-                  href={nextPageHref()}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-md text-sm font-medium transition-colors"
-                >
-                  Carregar mais
-                </a>
+                <LoadMoreButton href={nextPageHref()} />
               </div>
             )}
           </>
