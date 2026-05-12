@@ -24,7 +24,7 @@ export default function ContentCard({
   return (
     <Link
       href={href}
-      className="group flex-shrink-0 w-[150px] md:w-[180px] transition-transform duration-300 hover:scale-105"
+      className="group flex-shrink-0 snap-start w-[130px] sm:w-[150px] md:w-[180px] transition-transform duration-300 hover:scale-[1.04] active:scale-95"
     >
       <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-[#1f1f1f]">
         {posterPath ? (
