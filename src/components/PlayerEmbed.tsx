@@ -32,6 +32,13 @@ export default function PlayerEmbed({ src, title, backHref }: PlayerEmbedProps) 
         className="w-full h-full border-0"
         allow="autoplay *; encrypted-media *; picture-in-picture *; fullscreen *; clipboard-write *; accelerometer *; gyroscope *; web-share *"
       />
+
+      {/* Cover the player's built-in "Voltar" button at the top-left.
+          The iframe is cross-origin so we can't hide it inside; instead we
+          overlay an opaque rectangle that visually blends with the player's
+          background and intercepts clicks. The z-index sits above the
+          iframe but below our top bar so our own back button stays usable. */}
+      <div className="absolute top-0 left-0 w-32 h-14 md:w-44 md:h-16 bg-black z-10 pointer-events-auto" />
     </div>
   );
 }
