@@ -47,6 +47,7 @@ function buildForwardHeaders(
         .split(";")
         .map((c) => c.trim())
         .filter((c) => !c.startsWith("lucas-tv-auth="))
+        .filter((c) => !c.startsWith("_proxy_idx="))
         .join("; ");
       if (filtered) headers["Cookie"] = filtered;
     }

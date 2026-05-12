@@ -1,10 +1,12 @@
-// Route through our same-origin proxy so we can sandbox the iframe and inject
-// a protective script that intercepts popups, location changes, and clicks.
-// The proxy sends Sec-Fetch-Dest: iframe + Sec-Fetch-Site: cross-site so the
-// upstream serves the real player (not the landing page).
-// #noLink/#noEpList are passed as the URL fragment (after the proxy URL).
+import { SUPERFLIX_BASE_URL } from "./constants";
+
+// Direct embed per the official SuperFlixAPI docs (https://superflixapi.online/doc).
+// The browser sends Sec-Fetch-Dest: iframe + Sec-Fetch-Site: cross-site automatically
+// for a cross-origin iframe, which is what the upstream uses to serve the real
+// player (not the landing page). #noLink hides the external-partner button;
+// #noEpList hides the episode list on series.
 export function getMoviePlayerUrl(id: number | string): string {
-  return `/api/proxy?url=${encodeURIComponent(`/filme/${id}`)}#noLink`;
+  return `${SUPERFLIX_BASE_URL}/filme/${id}#noLink`;
 }
 
 export function getEpisodePlayerUrl(
@@ -12,7 +14,5 @@ export function getEpisodePlayerUrl(
   season: number,
   episode: number
 ): string {
-  return `/api/proxy?url=${encodeURIComponent(
-    `/serie/${id}/${season}/${episode}`
-  )}#noLink#noEpList`;
+  return `${SUPERFLIX_BASE_URL}/serie/${id}/${season}/${episode}#noLink#noEpList`;
 }

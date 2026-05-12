@@ -25,15 +25,12 @@ export default function PlayerEmbed({ src, title, backHref }: PlayerEmbedProps) 
         <span className="text-white font-medium truncate">{title}</span>
       </div>
 
-      {/* sandbox blocks parent navigation and popups. The proxy serves
-          sanitized content with a protective script that hides the sandbox
-          attribute from the player's anti-sandbox detection. */}
+      {/* Direct embed config per the official SuperFlixAPI docs. No sandbox:
+          the upstream detects sandboxing and refuses to serve the player. */}
       <iframe
         src={src}
         className="w-full h-full border-0"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-        referrerPolicy="origin"
+        allow="autoplay *; encrypted-media *; picture-in-picture *; fullscreen *; clipboard-write *; accelerometer *; gyroscope *; web-share *"
       />
     </div>
   );
