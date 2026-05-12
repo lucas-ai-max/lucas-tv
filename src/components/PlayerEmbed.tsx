@@ -35,10 +35,11 @@ export default function PlayerEmbed({ src, title, backHref }: PlayerEmbedProps) 
 
       {/* Cover the player's built-in "Voltar" button at the top-left.
           The iframe is cross-origin so we can't hide it inside; instead we
-          overlay an opaque rectangle that visually blends with the player's
-          background and intercepts clicks. The z-index sits above the
-          iframe but below our top bar so our own back button stays usable. */}
-      <div className="absolute top-0 left-0 w-32 h-14 md:w-44 md:h-16 bg-black z-10 pointer-events-auto" />
+          overlay a blurred translucent rectangle that blends with whatever
+          color the player happens to render (gray loading screen, video,
+          control overlay, etc.) and intercepts clicks. The z-index sits
+          above the iframe but below our hover top bar. */}
+      <div className="absolute top-1 left-1 md:top-2 md:left-2 w-24 h-10 md:w-32 md:h-12 rounded-md bg-black/40 backdrop-blur-xl z-10 pointer-events-auto" />
     </div>
   );
 }
