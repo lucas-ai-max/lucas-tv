@@ -25,12 +25,14 @@ export default function PlayerEmbed({ src, title, backHref }: PlayerEmbedProps) 
         <span className="text-white font-medium truncate">{title}</span>
       </div>
 
-      {/* Player iframe - content served from our proxy, sandbox is safe */}
+      {/* sandbox blocks parent navigation and popups. The proxy serves
+          sanitized content with a protective script that hides the sandbox
+          attribute from the player's anti-sandbox detection. */}
       <iframe
         src={src}
         className="w-full h-full border-0"
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-        allow="autoplay; fullscreen; encrypted-media"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         referrerPolicy="origin"
       />
     </div>

@@ -1,19 +1,18 @@
-const SUPERFLIX_HOST = "superflixapi.rest";
+const SUPERFLIX_HOST = "superflixapi.online";
 
 // --- Blocklists ---
 
 const BLOCKED_SCRIPT_SRCS =
-  /ads|adserv|doubleclick|googlesyndication|popads|popcash|propeller|sandbox\.php|tracker|analytics|adblock|monetag|monetization/i;
+  /ads|adserv|doubleclick|googlesyndication|popads|popcash|propeller|sandbox\.php|tracker|analytics|adblock|monetag|monetization|disable-devtool|trex\.php|chorume|\.xyz\//i;
 
+// Only block scripts that are *clearly* ad/anti-adblock loaders. Legitimate
+// player scripts often contain window.open / .click() / document.write for
+// downloads, etc. — those are neutralised at runtime by the protective script
+// (window.open override, location.assign/replace rewrites, click handler
+// interception). Static content-blocking was removing the 32KB tab-button
+// handler in superflixapi's player by mistake.
 const BLOCKED_SCRIPT_CONTENT = [
-  /pop(up|under)/i,
-  /window\s*\.\s*open\s*\(/i,
-  /(window|document|top)\s*\.\s*location\s*(=|\.assign|\.replace|\.href\s*=)/i,
-  /sandbox\.php/i,
-  /createElement\s*\(\s*['"]iframe['"]\s*\)/i,
-  /document\.write/i,
-  /\.click\s*\(\s*\)/i,
-  /adblock/i,
+  /adblock\s*detect/i,
   /monetag|monetiz/i,
 ];
 
@@ -105,26 +104,133 @@ export function sanitizeHtml(html: string, originalPath: string): string {
   const protectiveScript = `<script>
 (function(){
   var HOST='${SUPERFLIX_HOST}';
+  // Hide that we're inside a (sandboxed) iframe. The player's detectSandbox
+  // checks frameElement.hasAttribute('sandbox') — with frameElement null, the
+  // call throws and is caught silently, allowing the player to continue.
+  try{Object.defineProperty(window,'frameElement',{get:function(){return null;},configurable:true});}catch(e){}
+  // Second detectSandbox check: \`document.domain = document.domain\`.
+  // In a sandboxed iframe Chrome throws a SecurityError mentioning "sandbox",
+  // which the player uses as a signal. Override the setter to swallow.
+  try{Object.defineProperty(document,'domain',{get:function(){return '${SUPERFLIX_HOST}';},set:function(){},configurable:true});}catch(e){}
+  // Third detectSandbox check: navigator.plugins.namedItem('Chrome PDF Viewer').
+  // If this returns truthy (it does in modern Chrome), the player proceeds to
+  // create a probe element and call document.body.appendChild — which throws
+  // because body doesn't exist yet (we run in <head>). Returning a fake empty
+  // plugins object makes namedItem return null → player returns early.
+  try{
+    var _emptyPlugins={length:0,namedItem:function(){return null;},item:function(){return null;},refresh:function(){}};
+    Object.defineProperty(navigator,'plugins',{get:function(){return _emptyPlugins;},configurable:true});
+  }catch(e){}
+  // Block top navigation entirely (sandbox already blocks it; this adds a
+  // belt to the suspenders in case the sandbox is somehow bypassed).
+  try{Object.defineProperty(window,'top',{get:function(){return window;},configurable:true});}catch(e){}
+  try{Object.defineProperty(window,'parent',{get:function(){return window;},configurable:true});}catch(e){}
+  // Spoof window.location so the player's hostname check thinks it's on
+  // the real site. Relative URL resolution is unaffected (uses the actual
+  // document base URL). This prevents the intentional crash when the player
+  // detects it's running on a non-superflixapi hostname.
+  try{
+    var _rl=window.location;
+    Object.defineProperty(window,'location',{
+      get:function(){
+        return new Proxy(_rl,{
+          get:function(t,p){
+            if(p==='hostname'||p==='host')return HOST;
+            if(p==='origin')return 'https://'+HOST;
+            if(p==='protocol')return 'https:';
+            var v=t[p];
+            return typeof v==='function'?v.bind(t):v;
+          }
+        });
+      },
+      configurable:true
+    });
+  }catch(e){}
+  // Freeze console.clear so disable-devtool can't hide errors
+  try{var _cc=console.clear;console.clear=function(){};}catch(e){}
+  // The upstream player defines a global __Y whose init() calls methods
+  // (firstP, firstI, secondI...) that are normally added by an ad/popup
+  // script loaded from a third-party domain. When that script is blocked
+  // (ad blocker, our blocklist, DNS filter), the missing methods cause
+  // TypeError. Wrap __Y in a Proxy that returns no-op functions for any
+  // undefined property — popups are intentionally disabled anyway.
+  try{
+    var _yStash;
+    Object.defineProperty(window,'__Y',{
+      get:function(){return _yStash;},
+      set:function(v){
+        if(v&&typeof v==='object'){
+          _yStash=new Proxy(v,{
+            get:function(t,p){
+              if(p in t)return t[p];
+              return function(){return null;};
+            }
+          });
+        } else {_yStash=v;}
+      },
+      configurable:true
+    });
+  }catch(e){}
+  // Rewrite upstream URLs to go through our same-origin proxy.
   function rw(u){
-    if(typeof u!=='string'||u.indexOf(HOST)===-1)return u;
-    try{
-      var parsed=new URL(u,location.href);
-      if(parsed.hostname.indexOf(HOST)===-1)return u;
-      return '/api/proxy?url='+encodeURIComponent(parsed.pathname+parsed.search);
-    }catch(e){return u;}
+    if(typeof u!=='string')return u;
+    // Anti-proxy sandbox check: route to upstream with correct origin so server validates OK.
+    if(u.indexOf('sanbox.php')!==-1){
+      return '/api/proxy?url='+encodeURIComponent('/sanbox.php?https://'+HOST+'/');
+    }
+    // Cloudflare RUM analytics: discard silently (not needed, causes 404 noise).
+    if(u.indexOf('cdn-cgi/')!==-1)return null;
+    // Absolute upstream URLs → proxy
+    if(u.indexOf(HOST)!==-1){
+      try{
+        var parsed=new URL(u,location.href);
+        if(parsed.hostname.indexOf(HOST)===-1)return u;
+        return '/api/proxy?url='+encodeURIComponent(parsed.pathname+parsed.search);
+      }catch(e){return u;}
+    }
+    // Root-relative paths that aren't our own → proxy them.
+    // Player makes calls like fetch('/player/bootstrap') which the iframe
+    // would resolve against localhost; we must route them through the proxy
+    // so they reach the upstream API.
+    if(u.charAt(0)==='/'
+       && u.indexOf('/api/')!==0
+       && u.indexOf('/_next/')!==0
+       && u.indexOf('/sanbox.php')!==0
+       && u.indexOf('//')!==0){
+      return '/api/proxy?url='+encodeURIComponent(u);
+    }
+    return u;
   }
   // Block popups
   try{Object.defineProperty(window,'open',{value:function(){return null},writable:false,configurable:false});}catch(e){window.open=function(){return null};}
-  // fetch
+  // fetch — null return means discard (return resolved empty response)
   if(window.fetch){
     var of=window.fetch;
-    window.fetch=function(u,o){return of.call(this,rw(u),o);};
+    window.fetch=function(u,o){
+      var r=rw(u);
+      if(r===null)return Promise.resolve(new Response('',{status:200}));
+      return of.call(this,r,o);
+    };
   }
   // XHR
   try{
     var oo=XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open=function(m,u){arguments[1]=rw(u);return oo.apply(this,arguments);};
+    XMLHttpRequest.prototype.open=function(m,u){
+      var r=rw(u);
+      if(r===null){
+        // Replace with a no-op: point to a data URL that returns empty
+        arguments[1]='data:text/plain,';
+      } else {
+        arguments[1]=r;
+      }
+      return oo.apply(this,arguments);
+    };
   }catch(e){}
+  // sendBeacon (Cloudflare RUM / cdn-cgi) — discard silently
+  if(navigator&&navigator.sendBeacon){
+    var ob=navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon=function(u,d){var r=rw(u);if(r===null)return true;return ob(r,d);};
+  }
   // location.assign / .replace
   try{
     var la=window.location.assign.bind(window.location);
@@ -154,10 +260,55 @@ export function sanitizeHtml(html: string, originalPath: string): string {
     }
   },true);
 })();
+</script>
+<style>
+/* Hide the player's built-in back button (Lucas TV has its own). */
+#btn-back, .player-back, .btn-back, a[href*="javascript:history"], a[onclick*="history.back"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+/* Kill click-trap overlays: transparent full-viewport divs with max z-index
+   that the upstream injects to capture clicks and open popup ads. They have
+   inline styles like opacity:0.01 + z-index:2147483647. */
+div[style*="opacity:0.01"][style*="z-index:2147483647"],
+div[style*="opacity: 0.01"][style*="z-index: 2147483647"],
+div[style*="opacity:0.0"][style*="z-index:2147483"],
+div[style*="2147483647"] {
+  display: none !important;
+  pointer-events: none !important;
+}
+</style>
+<script>
+(function(){
+  // Runtime defense: remove click-trap overlays as soon as they're appended.
+  // Some player scripts add them dynamically after page load.
+  function killTrap(el){
+    if(!el||el.nodeType!==1)return;
+    var s=el.getAttribute&&el.getAttribute('style')||'';
+    if(s.indexOf('2147483647')!==-1||(s.indexOf('opacity:0.01')!==-1&&s.indexOf('position:fixed')!==-1)){
+      try{el.parentNode&&el.parentNode.removeChild(el);}catch(e){}
+    }
+  }
+  try{
+    var mo=new MutationObserver(function(records){
+      records.forEach(function(r){
+        r.addedNodes&&Array.prototype.forEach.call(r.addedNodes,killTrap);
+      });
+    });
+    document.addEventListener('DOMContentLoaded',function(){
+      mo.observe(document.body,{childList:true,subtree:true});
+    });
+    // Also observe documentElement in case body isn't ready
+    mo.observe(document.documentElement,{childList:true,subtree:true});
+  }catch(e){}
+})();
 </script>`;
 
-  if (result.includes("</head>")) {
-    result = result.replace("</head>", protectiveScript + "</head>");
+  // Inject as early as possible so overrides are in place before any
+  // inline or synchronous external scripts execute.
+  if (/<head[^>]*>/i.test(result)) {
+    result = result.replace(/<head([^>]*)>/i, `<head$1>${protectiveScript}`);
   } else if (result.includes("<body")) {
     result = result.replace(/<body([^>]*)>/i, `<body$1>${protectiveScript}`);
   } else {
