@@ -9,6 +9,8 @@ interface ContentCardProps {
   voteAverage: number;
   year: string;
   mediaType: "movie" | "tv";
+  hrefOverride?: string;
+  progressPercent?: number;
 }
 
 export default function ContentCard({
@@ -18,8 +20,11 @@ export default function ContentCard({
   voteAverage,
   year,
   mediaType,
+  hrefOverride,
+  progressPercent,
 }: ContentCardProps) {
-  const href = mediaType === "movie" ? `/movie/${id}` : `/series/${id}`;
+  const href = hrefOverride || (mediaType === "movie" ? `/movie/${id}` : `/series/${id}`);
+  const progress = Math.max(0, Math.min(100, progressPercent || 0));
 
   return (
     <Link
@@ -41,11 +46,19 @@ export default function ContentCard({
           </div>
         )}
 
-        <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-1.5 py-0.5 rounded">
-          {voteAverage.toFixed(1)}
-        </div>
+        {voteAverage > 0 && (
+          <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-1.5 py-0.5 rounded">
+            {voteAverage.toFixed(1)}
+          </div>
+        )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+        {progress > 0 && (
+          <div className="absolute left-0 right-0 bottom-0 h-1 bg-white/25">
+            <div className="h-full bg-red-600" style={{ width: `${progress}%` }} />
+          </div>
+        )}
       </div>
 
       <div className="mt-2">

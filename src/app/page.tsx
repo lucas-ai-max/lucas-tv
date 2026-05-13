@@ -4,6 +4,8 @@ import Navbar from "@/components/Navbar";
 import HeroBanner from "@/components/HeroBanner";
 import ContentCarousel from "@/components/ContentCarousel";
 import ContentCard from "@/components/ContentCard";
+import { getCurrentUser } from "@/lib/auth";
+import { getContinueWatching, getWatchedItems } from "@/lib/watch-progress";
 import {
   getTrending,
   getPopularMovies,
@@ -21,6 +23,7 @@ export default async function Home() {
     animePage1,
     animePage2,
     animePage3,
+    currentUser,
   ] = await Promise.all([
     getTrending("week"),
     getPopularMovies(),
@@ -29,7 +32,15 @@ export default async function Home() {
     getPopularAnimes(1),
     getPopularAnimes(2),
     getPopularAnimes(3),
+    getCurrentUser(),
   ]);
+
+  const [continueWatching, watchedItems] = currentUser
+    ? await Promise.all([
+        getContinueWatching(currentUser.id, 20),
+        getWatchedItems(currentUser.id, 20),
+      ])
+    : [[], []];
 
   // Concatena 3 páginas de animes (~60 items) e remove duplicados por id.
   const animeSeen = new Set<number>();
@@ -50,7 +61,42 @@ export default async function Home() {
 
       {heroItem && <HeroBanner item={heroItem} />}
 
-      <div className="-mt-16 relative z-10">
+      <div className="relative z-10 pt-8 md:pt-10">
+        {continueWatching.length > 0 && (
+          <ContentCarousel title="Continuar assistindo">
+            {continueWatching.map((item) => (
+              <ContentCard
+                key={item.id}
+                id={item.tmdb_id}
+                title={item.title}
+                posterPath={item.poster_path}
+                voteAverage={0}
+                year=""
+                mediaType={item.content_type === "movie" ? "movie" : "tv"}
+                hrefOverride={item.watch_href}
+                progressPercent={Number(item.watched_percent)}
+              />
+            ))}
+          </ContentCarousel>
+        )}
+
+        {watchedItems.length > 0 && (
+          <ContentCarousel title="Assistidos">
+            {watchedItems.map((item) => (
+              <ContentCard
+                key={item.id}
+                id={item.tmdb_id}
+                title={item.title}
+                posterPath={item.poster_path}
+                voteAverage={0}
+                year=""
+                mediaType={item.content_type === "movie" ? "movie" : "tv"}
+                hrefOverride={item.watch_href}
+              />
+            ))}
+          </ContentCarousel>
+        )}
+
         <ContentCarousel title="Em Alta">
           {trending.results
             .filter((item) => item.media_type !== "person")

@@ -1,10 +1,7 @@
-import { AUTH_COOKIE } from "@/lib/auth";
+import { clearAuthCookie } from "@/lib/session";
 
 export async function POST() {
   const response = Response.json({ ok: true });
-  response.headers.set(
-    "Set-Cookie",
-    `${AUTH_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
-  );
+  response.headers.set("Set-Cookie", clearAuthCookie());
   return response;
 }

@@ -1,22 +1,22 @@
 import { NextRequest } from "next/server";
-import { authenticateUser } from "@/lib/auth";
+import { createUser } from "@/lib/auth";
 import { buildAuthCookie, createSessionToken } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   const { username, password } = await request.json();
-  const user = await authenticateUser(username, password);
+  const result = await createUser(username, password);
 
-  if (!user) {
-    return Response.json({ error: "Credenciais invalidas" }, { status: 401 });
+  if (!result.ok) {
+    return Response.json({ error: result.error }, { status: 400 });
   }
 
   const token = await createSessionToken({
-    userId: user.id,
-    username: user.username,
-    displayName: user.displayName,
+    userId: result.user.id,
+    username: result.user.username,
+    displayName: result.user.displayName,
   });
 
-  const response = Response.json({ ok: true, user });
+  const response = Response.json({ ok: true, user: result.user });
   response.headers.set("Set-Cookie", buildAuthCookie(token));
   return response;
 }
