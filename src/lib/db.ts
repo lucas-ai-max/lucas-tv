@@ -27,15 +27,17 @@ function createPool() {
   });
 }
 
-export const db = globalThis.lucasTvPool ?? createPool();
+function getPool() {
+  if (!globalThis.lucasTvPool) {
+    globalThis.lucasTvPool = createPool();
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.lucasTvPool = db;
+  return globalThis.lucasTvPool;
 }
 
 export function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: unknown[] = []
 ) {
-  return db.query<T>(text, params);
+  return getPool().query<T>(text, params);
 }
