@@ -23,7 +23,11 @@ function createPool() {
     user: requiredEnv("SUPABASE_DB_USER"),
     password: requiredEnv("SUPABASE_DB_PASSWORD"),
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    // Serverless: one connection per warm lambda, short idle so Supavisor
+    // (transaction pooler on :6543) can reclaim slots quickly.
+    max: 1,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000,
   });
 }
 

@@ -15,15 +15,21 @@ export default async function WatchMoviePage({
   let progressId: string | null = null;
 
   if (user) {
-    progressId = await recordPlaybackStart({
-      userId: user.id,
-      contentType: "movie",
-      tmdbId: movie.id,
-      title: movie.title,
-      posterPath: movie.poster_path,
-      backdropPath: movie.backdrop_path,
-      durationSeconds: movie.runtime ? movie.runtime * 60 : null,
-    });
+    try {
+      progressId = await recordPlaybackStart({
+        userId: user.id,
+        contentType: "movie",
+        tmdbId: movie.id,
+        title: movie.title,
+        posterPath: movie.poster_path,
+        backdropPath: movie.backdrop_path,
+        durationSeconds: movie.runtime ? movie.runtime * 60 : null,
+      });
+    } catch (err) {
+      // DB hiccup must not break the player render — progress will retry on
+      // the next play event from the client.
+      console.error("recordPlaybackStart failed:", err);
+    }
   }
 
   return (

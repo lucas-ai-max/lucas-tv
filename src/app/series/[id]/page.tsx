@@ -14,11 +14,17 @@ export default async function SeriesDetailPage({
     getSeriesCredits(seriesId),
   ]);
 
-  // Pegar episódios da primeira temporada (>0)
+  // Pegar episódios da primeira temporada (>0). Falha do TMDB aqui não
+  // deve quebrar a página — o cliente carrega temporadas sob demanda.
   const firstSeason = series.seasons.find((s) => s.season_number > 0);
-  const initialSeasonData = firstSeason
-    ? await getSeasonDetails(seriesId, firstSeason.season_number)
-    : null;
+  let initialSeasonData = null;
+  if (firstSeason) {
+    try {
+      initialSeasonData = await getSeasonDetails(seriesId, firstSeason.season_number);
+    } catch (err) {
+      console.error("getSeasonDetails failed:", err);
+    }
+  }
 
   return (
     <SeriesDetailClient
