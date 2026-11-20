@@ -5,7 +5,8 @@ import { AUTH_COOKIE, verifySessionToken } from "@/lib/session";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const publicPaths = ["/login", "/api/login", "/api/register", "/api/logout"];
+  // /api/cron authenticates itself with CRON_SECRET, not the session cookie.
+  const publicPaths = ["/login", "/api/login", "/api/register", "/api/logout", "/api/cron"];
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
